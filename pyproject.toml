@@ -1,0 +1,36 @@
+[project]
+name = "gfm"
+version = "0.1.0"
+description = "Graph-guided flow matching"
+readme = "README.md"
+authors = [
+    { name = "Huai-Yu Liou", email = "william.liou@tron-mainz.de" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "decoupler==2.1.0",
+    "flow-matching==1.0.10",
+    "mygene==3.2.2",
+    "numpy==1.26.4",
+    "pot>=0.9.6.post1",
+    "scanpy>=1.11.5",
+    "scvi-tools==1.3.3",
+    "torch==2.6.0",
+    "torch-geometric==2.6.1",
+    "torchcfm==1.0.7",
+]
+
+
+[build-system]
+requires = ["uv_build>=0.9.3,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+    "jupyter>=1.1.1",
+    "pytest>=8.4.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gfm"]
