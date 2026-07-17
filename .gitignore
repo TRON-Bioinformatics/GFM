@@ -9,13 +9,12 @@ wheels/
 # Virtual environments
 .venv
 
-# Data files
-analysis/data
-
 # Ignore all files in analysis/ except specific ones
 analysis/*
 !analysis/gfm_run_all.py
 !analysis/quickstart.ipynb
+!analysis/data/
+analysis/data/*
 !analysis/data/pert_graph_edge_index_20.pt
 !analysis/data/pert_graph_edge_list_20.csv
 !analysis/data/pert_graph_edge_weight_20.pt

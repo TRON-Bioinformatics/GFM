@@ -12,7 +12,6 @@ from unittest.mock import patch
 
 import pandas as pd
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = REPO_ROOT / "analysis" / "gfm_run_all.py"
 ADATA_PATH = REPO_ROOT / "analysis" / "data" / "preprocessed_replogle_k562_small.h5ad"
@@ -26,23 +25,23 @@ def load_gfm_run_all_module():
     assert spec.loader is not None
 
     fake_scanpy = types.ModuleType("scanpy")
-    setattr(fake_scanpy, "read_h5ad", lambda *args, **kwargs: None)
+    fake_scanpy.read_h5ad = lambda *args, **kwargs: None
 
     fake_torch = types.ModuleType("torch")
-    setattr(fake_torch, "cuda", types.SimpleNamespace(is_available=lambda: False, current_device=lambda: 0))
-    setattr(fake_torch, "device", lambda name: name)
+    fake_torch.cuda = types.SimpleNamespace(is_available=lambda: False, current_device=lambda: 0)
+    fake_torch.device = lambda name: name
 
     fake_pl = types.ModuleType("pytorch_lightning")
-    setattr(fake_pl, "seed_everything", lambda seed: None)
+    fake_pl.seed_everything = lambda seed: None
 
     fake_gfm_pkg = types.ModuleType("gfm")
     fake_gfm_pkg.__path__ = []
 
     fake_gfm_module = types.ModuleType("gfm.gfm")
-    setattr(fake_gfm_module, "GFM", object)
+    fake_gfm_module.GFM = object
 
     fake_helpers_module = types.ModuleType("gfm.helpers")
-    setattr(fake_helpers_module, "compute_metrics", lambda *args, **kwargs: None)
+    fake_helpers_module.compute_metrics = lambda *args, **kwargs: None
 
     with patch.dict(
         sys.modules,
@@ -163,11 +162,13 @@ class GFMRunAllSmokeTests(unittest.TestCase):
                 "--save-times",
             ]
 
-            with patch.object(self.module, "GFM", FakeGFM), \
-                patch.object(self.module, "compute_metrics", side_effect=fake_compute_metrics), \
-                patch.object(self.module.sc, "read_h5ad", return_value=adata) as read_h5ad_mock, \
-                patch.object(self.module.pl, "seed_everything") as seed_mock, \
-                patch.object(sys, "argv", argv):
+            with (
+                patch.object(self.module, "GFM", FakeGFM),
+                patch.object(self.module, "compute_metrics", side_effect=fake_compute_metrics),
+                patch.object(self.module.sc, "read_h5ad", return_value=adata) as read_h5ad_mock,
+                patch.object(self.module.pl, "seed_everything") as seed_mock,
+                patch.object(sys, "argv", argv),
+            ):
                 self.module.main()
 
             seed_mock.assert_called_once_with(42)
@@ -241,11 +242,13 @@ class GFMRunAllSmokeTests(unittest.TestCase):
                 "--save-times",
             ]
 
-            with patch.object(self.module, "GFM", FakeGFM), \
-                patch.object(self.module, "compute_metrics", side_effect=fake_compute_metrics), \
-                patch.object(self.module.sc, "read_h5ad", side_effect=fake_read_h5ad), \
-                patch.object(self.module.pl, "seed_everything"), \
-                patch.object(sys, "argv", argv):
+            with (
+                patch.object(self.module, "GFM", FakeGFM),
+                patch.object(self.module, "compute_metrics", side_effect=fake_compute_metrics),
+                patch.object(self.module.sc, "read_h5ad", side_effect=fake_read_h5ad),
+                patch.object(self.module.pl, "seed_everything"),
+                patch.object(sys, "argv", argv),
+            ):
                 self.module.main()
 
             self.assertIsNotNone(FakeGFM.last_instance)

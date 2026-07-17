@@ -7,7 +7,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
 
@@ -29,7 +28,8 @@ class PackageImportSmokeTests(unittest.TestCase):
     def test_top_level_package_import(self):
         sys.path.insert(0, str(SRC_ROOT))
         try:
-            import gfm  # noqa: F401
+            import gfm
+
             self.assertTrue(hasattr(gfm, "__file__"))
         finally:
             sys.path.pop(0)
@@ -45,7 +45,9 @@ class PackageImportSmokeTests(unittest.TestCase):
             fake_tqdm_auto = _fake_module("tqdm.auto", tqdm=lambda x, *args, **kwargs: x)
 
             fake_torchcfm = _fake_module("torchcfm", OTPlanSampler=object)
-            fake_flow_scheduler = _fake_module("flow_matching.path.scheduler", CondOTScheduler=object)
+            fake_flow_scheduler = _fake_module(
+                "flow_matching.path.scheduler", CondOTScheduler=object
+            )
             fake_flow_path = _fake_module("flow_matching.path", AffineProbPath=object)
             fake_flow_solver = _fake_module("flow_matching.solver", ODESolver=object)
 
