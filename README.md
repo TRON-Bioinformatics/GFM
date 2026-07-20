@@ -32,7 +32,7 @@ Use the steps below to run training on the Replogle K562 dataset.
 
 ### 1. Prepare required data files
 
-Prepare the input `Anndata` and the data split file. Place the graph data under the graph directory (here we use `analysis/data/` as an example):
+Prepare the input `AnnData` and the data split file. Place the graph data under the graph directory (here we use `analysis/data/` as an example):
 
 - `pert_graph_edge_index_20.pt`
 - `pert_graph_edge_list_20.csv`
@@ -48,7 +48,7 @@ adata_path="./data/preprocessed_replogle_k562.h5ad"
 split_dict_path="./data/replogle_k562_single_1_0.75.pkl"
 graph_dir="./data"
 
-uv run python ./gfm_run_all.py \
+uv run python ./scripts/gfm_run_all.py \
     --adata-path "${adata_path}" \
     --split-dict-path "${split_dict_path}" \
     --output-dir "./output/" \
@@ -57,4 +57,8 @@ uv run python ./gfm_run_all.py \
 ```
 
 This command trains GFM using the `go+pert+ppi` graph configuration and writes outputs to `--output-dir`.
+
+## Reproducibility
+
+We provide a minimal example in `analysis/quickstart.ipynb` for the training, prediction, and evaluation of GFM. To reproduce the analysis in the GFM manuscript, please check out the notebooks in `analysis/notebooks/`.
 
