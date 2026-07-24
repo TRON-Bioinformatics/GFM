@@ -13,7 +13,7 @@ from unittest.mock import patch
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = REPO_ROOT / "analysis" / "gfm_run_all.py"
+SCRIPT_PATH = REPO_ROOT / "analysis" / "scripts" / "gfm_run_all.py"
 ADATA_PATH = REPO_ROOT / "analysis" / "data" / "preprocessed_replogle_k562_small.h5ad"
 SPLIT_DICT_PATH = REPO_ROOT / "analysis" / "data" / "adata_replogle_k562_small_split_dict.pkl"
 
@@ -36,6 +36,7 @@ def load_gfm_run_all_module():
 
     fake_gfm_pkg = types.ModuleType("gfm")
     fake_gfm_pkg.__path__ = []
+    fake_gfm_pkg.GFM = object
 
     fake_gfm_module = types.ModuleType("gfm.gfm")
     fake_gfm_module.GFM = object

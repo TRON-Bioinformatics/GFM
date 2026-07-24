@@ -202,7 +202,7 @@ def evaluate_metrics_condot(model, val_loader):
     return np.mean(mse_list), np.mean(w2d_list), np.mean(mmd_list)
 
 
-def train_one_epoch_no_fm(model, train_loader, optimizer):
+def train_one_epoch_no_otcfm(model, train_loader, optimizer):
     device = next(model.parameters()).device
     train_loss = 0
     for batch in train_loader:
@@ -210,21 +210,21 @@ def train_one_epoch_no_fm(model, train_loader, optimizer):
         optimizer.zero_grad()
 
         # Unpack batch - may have 3 or 4 elements depending on context
-        if len(batch) == 4:
-            z0_coupled, z1_coupled, y, c = batch
+        if len(batch) == 3:
+            z1, y, c = batch
             c = c.to(device, non_blocking=True)
         else:
-            z0_coupled, z1_coupled, y = batch
+            z1, y = batch
             c = None
 
         # Move data to device
-        z0_coupled = z0_coupled.to(device, non_blocking=True)
-        z1_coupled = z1_coupled.to(device, non_blocking=True)
+        z0 = torch.randn_like(z1).to(device, non_blocking=True)  # Sample z0 as random noise
+        z1 = z1.to(device, non_blocking=True)
         y = y.to(device, non_blocking=True)
 
-        t = torch.zeros(z0_coupled.shape[0]).to(device)
-        z1 = model(t, z0_coupled, y, c)
-        loss = torch.pow(z1 - z1_coupled, 2).mean()
+        t = torch.zeros(z0.shape[0]).to(device)
+        z1_pred = model(t, z0, y, c)
+        loss = torch.pow(z1_pred - z1, 2).mean()
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
@@ -232,35 +232,35 @@ def train_one_epoch_no_fm(model, train_loader, optimizer):
     return train_loss / len(train_loader)
 
 
-def evaluate_one_epoch_no_fm(model, val_loader):
+def evaluate_one_epoch_no_otcfm(model, val_loader):
     device = next(model.parameters()).device
     val_loss = 0
     for batch in val_loader:
         model.eval()
 
         # Unpack batch - may have 3 or 4 elements depending on context
-        if len(batch) == 4:
-            z0_coupled, z1_coupled, y, c = batch
+        if len(batch) == 3:
+            z1, y, c = batch
             c = c.to(device, non_blocking=True)
         else:
-            z0_coupled, z1_coupled, y = batch
+            z1, y = batch
             c = None
 
         # Move data to device
-        z0_coupled = z0_coupled.to(device, non_blocking=True)
-        z1_coupled = z1_coupled.to(device, non_blocking=True)
+        z0 = torch.randn_like(z1).to(device, non_blocking=True)  # Sample z0 as random noise
+        z1 = z1.to(device, non_blocking=True)
         y = y.to(device, non_blocking=True)
 
-        t = torch.zeros(z0_coupled.shape[0]).to(device)
-        z1 = model(t, z0_coupled, y, c)
-        loss = torch.pow(z1 - z1_coupled, 2).mean()
+        t = torch.zeros(z0.shape[0]).to(device)
+        z1_pred = model(t, z0, y, c)
+        loss = torch.pow(z1_pred - z1, 2).mean()
 
         val_loss += loss.item()
 
     return val_loss / len(val_loader)
 
 
-def evaluate_metrics_no_fm(model, val_loader):
+def evaluate_metrics_no_otcfm(model, val_loader):
     device = next(model.parameters()).device
     model.eval()
     mse_list = []
@@ -269,25 +269,25 @@ def evaluate_metrics_no_fm(model, val_loader):
     with torch.no_grad():
         for batch in val_loader:
             # Unpack batch - may have 3 or 4 elements depending on context
-            if len(batch) == 4:
-                z0_coupled, z1_coupled, y, c = batch
+            if len(batch) == 3:
+                z1, y, c = batch
                 c = c.to(device, non_blocking=True)
             else:
-                z0_coupled, z1_coupled, y = batch
+                z1, y = batch
                 c = None
 
             # Move data to device
-            z0_coupled = z0_coupled.to(device, non_blocking=True)
-            z1_coupled = z1_coupled.to(device, non_blocking=True)
+            z0 = torch.randn_like(z1).to(device, non_blocking=True)  # Sample z0 as random noise
+            z1 = z1.to(device, non_blocking=True)
             y = y.to(device, non_blocking=True)
 
-            t = torch.zeros(z0_coupled.shape[0]).to(device)
-            z1 = model(t, z0_coupled, y, c)
+            t = torch.zeros(z0.shape[0]).to(device)
+            z1_pred = model(t, z0, y, c)
+            z1_pred = z1_pred.cpu().numpy()
             z1 = z1.cpu().numpy()
-            z1_coupled = z1_coupled.cpu().numpy()
-            mse = ((z1 - z1_coupled) ** 2).mean()
-            w2d = wasserstein_2(z1, z1_coupled)
-            mmd = mmd_distance(z1, z1_coupled)
+            mse = ((z1_pred - z1) ** 2).mean()
+            w2d = wasserstein_2(z1_pred, z1)
+            mmd = mmd_distance(z1_pred, z1)
             w2d_list.append(w2d)
             mse_list.append(mse)
             mmd_list.append(mmd)

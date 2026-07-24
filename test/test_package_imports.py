@@ -82,14 +82,14 @@ class PackageImportSmokeTests(unittest.TestCase):
             fake_train = _fake_module(
                 "gfm.train",
                 evaluate_metrics_condot=lambda *args, **kwargs: (0.0, 0.0, 0.0),
-                evaluate_metrics_no_fm=lambda *args, **kwargs: (0.0, 0.0, 0.0),
+                evaluate_metrics_no_otcfm=lambda *args, **kwargs: (0.0, 0.0, 0.0),
                 evaluate_one_epoch_condot=lambda *args, **kwargs: 0.0,
-                evaluate_one_epoch_no_fm=lambda *args, **kwargs: 0.0,
+                evaluate_one_epoch_no_otcfm=lambda *args, **kwargs: 0.0,
                 train_one_epoch=lambda *args, **kwargs: 0.0,
                 evaluate_one_epoch=lambda *args, **kwargs: 0.0,
                 evaluate_metrics=lambda *args, **kwargs: (0.0, 0.0, 0.0),
                 train_one_epoch_condot=lambda *args, **kwargs: 0.0,
-                train_one_epoch_no_fm=lambda *args, **kwargs: 0.0,
+                train_one_epoch_no_otcfm=lambda *args, **kwargs: 0.0,
             )
 
             with patch.dict(
@@ -108,7 +108,7 @@ class PackageImportSmokeTests(unittest.TestCase):
                     "gfm.train": fake_train,
                 },
             ):
-                module = importlib.import_module("gfm.gfm")
+                module = importlib.import_module("gfm")
 
             self.assertTrue(hasattr(module, "GFM"))
         finally:

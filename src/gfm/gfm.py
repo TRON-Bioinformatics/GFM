@@ -30,13 +30,13 @@ from gfm.models import (
 from gfm.train import (
     evaluate_metrics,
     evaluate_metrics_condot,
-    evaluate_metrics_no_fm,
+    evaluate_metrics_no_otcfm,
     evaluate_one_epoch,
     evaluate_one_epoch_condot,
-    evaluate_one_epoch_no_fm,
+    evaluate_one_epoch_no_otcfm,
     train_one_epoch,
     train_one_epoch_condot,
-    train_one_epoch_no_fm,
+    train_one_epoch_no_otcfm,
 )
 from gfm.vae_training_utils import (
     make_condition_aware_vae_dataloader,
@@ -73,7 +73,7 @@ class GFM:
         device: str = "cpu",
         train_with_ctrl: bool = True,
         flow_from_ctrl: bool = False,
-        no_fm: bool = False,
+        no_otcfm: bool = False,
         use_contrastive: bool = False,
         use_condition_classifier: bool = False,
         use_null_embedding: bool = False,
@@ -98,7 +98,7 @@ class GFM:
         self.model_name = "model.pt" if model_name is None else model_name
         self.vae_name = "vae.pt" if vae_name is None else vae_name
         self.flow_from_ctrl = flow_from_ctrl
-        self.no_fm = no_fm
+        self.no_otcfm = no_otcfm
         self.use_contrastive = use_contrastive
         self.use_condition_classifier = use_condition_classifier
         self.use_null_embedding = use_null_embedding
@@ -208,6 +208,7 @@ class GFM:
         pert_encoding="gat",
         graph_dir=None,
         randomize_graph=False,
+        randomize_graph_type=None,
     ):
         # Common arguments for all ConditionalODE instantiations
         common_args = {
@@ -251,8 +252,7 @@ class GFM:
                 pert_names=self.pert_names,
                 k=k,
                 randomize_graph=randomize_graph,
-                adata=self.adata,
-                split_dict=self.split.split_dict,
+                randomize_graph_type=randomize_graph_type,
                 graph_dir=graph_dir,
                 pert_adata_path=pert_adata_path,
                 device=self.device,
@@ -543,7 +543,7 @@ class GFM:
         # Common arguments for data loaders
         common_loader_args = {"batch_size": batch_size, "device": self.device}
 
-        if use_condot:
+        if use_condot or self.no_otcfm:
             print("Using conditional OT path")
             self.train_loader = make_condot_data_loader(
                 self.adata,
@@ -622,11 +622,11 @@ class GFM:
                     "val_mmd": [],
                 }
                 for epoch in range(max_epochs):
-                    if self.no_fm:
-                        train_loss = train_one_epoch_no_fm(
+                    if self.no_otcfm:
+                        train_loss = train_one_epoch_no_otcfm(
                             self.model, self.train_loader, self.optimizer
                         )
-                        val_loss = evaluate_one_epoch_no_fm(self.model, self.val_loader)
+                        val_loss = evaluate_one_epoch_no_otcfm(self.model, self.val_loader)
                     else:
                         if self.use_condot:
                             train_loss = train_one_epoch_condot(
@@ -645,8 +645,8 @@ class GFM:
                     evaluation_df["val_loss"].append(val_loss)
 
                     if epoch % eval_freq == 0 or epoch == max_epochs - 1:
-                        if self.no_fm:
-                            val_mse, val_w2d, val_mmd = evaluate_metrics_no_fm(
+                        if self.no_otcfm:
+                            val_mse, val_w2d, val_mmd = evaluate_metrics_no_otcfm(
                                 self.model, self.val_loader
                             )
                         else:
@@ -689,8 +689,8 @@ class GFM:
                 print("Starting training without validation...")
                 evaluation_df = {"epoch": [], "train_loss": []}
                 for epoch in range(max_epochs):
-                    if self.no_fm:
-                        train_loss = train_one_epoch_no_fm(
+                    if self.no_otcfm:
+                        train_loss = train_one_epoch_no_otcfm(
                             self.model, self.train_loader, self.optimizer
                         )
                     else:
@@ -774,7 +774,7 @@ class GFM:
         contexts = []
 
         device = next(self.model.parameters()).device
-        if self.no_fm:
+        if self.no_otcfm:
             print("Predicting without flow matching...")
 
         # Either backend needs a per-cell library size to be passed in the batch.
@@ -804,7 +804,7 @@ class GFM:
                 z0 = z0.to(device=device, non_blocking=True)
                 y = y.to(device=device, non_blocking=True)
 
-                if self.no_fm:
+                if self.no_otcfm:
                     z1 = self.model(torch.zeros(z0.shape[0]).to(device), z0, y, c)
                 else:
                     if self.flow_from_ctrl:

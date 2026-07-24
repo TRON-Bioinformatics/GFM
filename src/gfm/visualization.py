@@ -290,6 +290,7 @@ def plot_delta_expression_boxplot_model(
         linewidth=0.25,
         fliersize=0.25,
         ax=ax,
+        saturation=1.0,
         legend=False,
     )
     if isinstance(palette, list):
@@ -332,7 +333,7 @@ def plot_umap_by_model(
     save_path=None,
     umap_kwargs=None,
     figsize=(7.08, 2),
-    size=10,
+    size=20,
 ):
     import matplotlib.pyplot as plt
     from matplotlib.patches import Patch
@@ -380,7 +381,7 @@ def plot_umap_by_model(
         ncol=len(all_models),
         frameon=False,
     )
-    fig.suptitle(f"Perturbed Gene: {pert}", fontsize=14, y=1.02)
+    fig.suptitle(f"Perturbed Gene: {pert}", y=1.02, fontsize=6.5)
     plt.tight_layout(rect=(0, 0.08, 1, 1))
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches="tight")

@@ -404,7 +404,7 @@ for epoch in range(1, epochs + 1):
     elapsed = time.time() - epoch_start_time
     logger.info("-" * 89)
     logger.info(
-        f"| end of epoch {epoch:3d} | time: {elapsed:5.2f}s | " f"valid loss/mse {val_loss:5.4f} |"
+        f"| end of epoch {epoch:3d} | time: {elapsed:5.2f}s | valid loss/mse {val_loss:5.4f} |"
     )
     logger.info("-" * 89)
 

@@ -69,8 +69,11 @@ def parse_args():
     parser.add_argument("--vae-batch-size", type=int, help="Batch size for VAE pretraining")
 
     # Flags
-    parser.add_argument("--no-fm", action="store_true", help="Disable flow matching")
+    parser.add_argument("--no-otcfm", action="store_true", help="Disable flow matching")
     parser.add_argument("--randomize-graph", action="store_true", help="Randomize graph structure")
+    parser.add_argument(
+        "--randomize-graph-type", type=str, help="Type of graph to randomize (e.g., 'go', 'ppi')"
+    )
     parser.add_argument("--skip-vae-pretrain", action="store_true", help="Skip VAE pretraining")
     parser.add_argument(
         "--skip-model-training", action="store_true", help="Skip GFM model training"
@@ -130,8 +133,9 @@ def merge_config_and_args(args):
         "eval_freq": 50,
         "lr": 5e-4,
         "vae_batch_size": 256,
-        "no_fm": False,
+        "no_otcfm": False,
         "randomize_graph": False,
+        "randomize_graph_type": None,
         "skip_vae_pretrain": False,
         "skip_model_training": False,
         "skip_prediction": False,
@@ -220,7 +224,7 @@ def main():
         device=device,
         use_contrastive=args.use_contrastive,
         use_condition_classifier=args.use_condition_classifier,
-        no_fm=args.no_fm,
+        no_otcfm=args.no_otcfm,
         use_null_embedding=args.use_null_embedding,
         use_scvi_vae=args.use_scvi_vae,
         aggregation_method=args.aggregation_method,
@@ -229,6 +233,7 @@ def main():
     # Initialize flow matching
     gfm.initialize_fm(
         randomize_graph=args.randomize_graph,
+        randomize_graph_type=args.randomize_graph_type,
         graph_type=args.graph_type,
         pert_encoding=args.pert_encoding,
         graph_dir=args.graph_dir,

@@ -585,7 +585,7 @@ def make_condot_data_loader(
                 context_filt = adata.obs[context_col] == context
                 filt = cond_filt & context_filt & split_filt
             else:
-                condition = group
+                condition = group[0] if isinstance(group, np.ndarray) else group
                 filt = (adata.obs[condition_col] == condition) & split_filt
 
             if sum(filt) == 0:
@@ -745,7 +745,7 @@ def make_prediction_data_loader(
     return data_loader
 
 
-def get_go_graph(device, k=None, graph_dir="./data", randomize=False):
+def get_go_graph(device, k=None, graph_dir="./data"):
     k = 20 if k is None else k
     _ensure_go_graph_artifacts(graph_dir)
 
@@ -761,9 +761,6 @@ def get_go_graph(device, k=None, graph_dir="./data", randomize=False):
     edge_list = pd.concat(
         [group.nlargest(k + 1, "importance") for _, group in df_jaccard.groupby("target")]
     ).reset_index(drop=True)
-
-    if randomize:
-        edge_list["source"] = np.random.permutation(edge_list["source"].to_numpy())
 
     import networkx as nx
 
@@ -1097,17 +1094,38 @@ def make_condition_labels_graph(pert_name, pert_names_graph, drug_graph=False):
     return condition_labels_graph
 
 
+def _parse_graph_components(graph_name):
+    return {component.strip() for component in graph_name.split("+") if component.strip()}
+
+
+def _should_randomize_entire_graph(randomize_graph, randomize_graph_type):
+    return randomize_graph and randomize_graph_type is None
+
+
+def _should_randomize_component(randomize_graph, randomize_graph_type, component_name):
+    if not randomize_graph or randomize_graph_type is None:
+        return False
+    return component_name in _parse_graph_components(randomize_graph_type)
+
+
+def _randomize_edge_sources(edge_list):
+    randomized_edge_list = edge_list.copy()
+    randomized_edge_list["source"] = np.random.permutation(
+        randomized_edge_list["source"].to_numpy()
+    )
+    return randomized_edge_list
+
+
 def build_graph(
     graph_type="go",
     pert_encoding="gat",
     pert_names=None,
     k=20,
     randomize_graph=False,
-    adata=None,
-    split_dict=None,
     graph_dir=None,
     pert_adata_path=None,
     device="cpu",
+    randomize_graph_type=None,
 ):
     if pert_names is None:
         raise ValueError("pert_names must be provided to build the graph.")
@@ -1115,17 +1133,42 @@ def build_graph(
         graph_dir = "./data"
     if graph_type == "go":
         edge_index, edge_weight, edge_list, pert_names_graph = get_go_graph(
-            device, k=k, graph_dir=graph_dir, randomize=randomize_graph
+            device,
+            k=k,
+            graph_dir=graph_dir,
         )
+        if _should_randomize_entire_graph(
+            randomize_graph, randomize_graph_type
+        ) or _should_randomize_component(randomize_graph, randomize_graph_type, "go"):
+            edge_list = _randomize_edge_sources(edge_list)
+            print("Randomized GO graph edges.")
+            edge_index, edge_weight = get_edge_index_and_weight(
+                edge_list, pert_names_graph, device=device
+            )
         condition_labels_graph = make_condition_labels_graph(pert_names, pert_names_graph)
     elif graph_type == "ppi":
         edge_index, edge_weight, edge_list, pert_names_graph = get_ppi_graph(
             k=k, device=device, graph_dir=graph_dir
         )
+        if _should_randomize_entire_graph(
+            randomize_graph, randomize_graph_type
+        ) or _should_randomize_component(randomize_graph, randomize_graph_type, "ppi"):
+            edge_list = _randomize_edge_sources(edge_list)
+            print("Randomized PPI graph edges.")
+            edge_index, edge_weight = get_edge_index_and_weight(
+                edge_list, pert_names_graph, device=device
+            )
         condition_labels_graph = make_condition_labels_graph(pert_names, pert_names_graph)
     elif graph_type == "go+ppi":
         _, _, edge_list_go, _ = get_go_graph(device, graph_dir=graph_dir)
         _, _, edge_list_ppi, _ = get_ppi_graph(k=10, device=device, graph_dir=graph_dir)
+
+        if _should_randomize_component(randomize_graph, randomize_graph_type, "go"):
+            edge_list_go = _randomize_edge_sources(edge_list_go)
+            print("Randomized GO graph edges.")
+        if _should_randomize_component(randomize_graph, randomize_graph_type, "ppi"):
+            edge_list_ppi = _randomize_edge_sources(edge_list_ppi)
+            print("Randomized PPI graph edges.")
 
         if pert_encoding == "hgnn":
             edge_list_go["relation"] = "gene_gene"
@@ -1133,8 +1176,9 @@ def build_graph(
             edge_list_ppi["relation"] = "gene_gene"
             edge_list_ppi["relation_type"] = "ppi"
             edge_list = pd.concat([edge_list_go, edge_list_ppi], ignore_index=True)
-            if randomize_graph:
-                edge_list["source"] = np.random.permutation(edge_list["source"].to_numpy())
+            if _should_randomize_entire_graph(randomize_graph, randomize_graph_type):
+                edge_list = _randomize_edge_sources(edge_list)
+                print("Randomized entire graph edges.")
             pert_names_graph = np.array(
                 list(set(edge_list["source"]).union(set(edge_list["target"])))
             )
@@ -1156,8 +1200,9 @@ def build_graph(
 
         else:
             edge_list = pd.concat([edge_list_go, edge_list_ppi], ignore_index=True)
-            if randomize_graph:
-                edge_list["source"] = np.random.permutation(edge_list["source"].to_numpy())
+            if _should_randomize_entire_graph(randomize_graph, randomize_graph_type):
+                edge_list = _randomize_edge_sources(edge_list)
+                print("Randomized entire graph edges.")
             pert_names_graph = np.array(
                 list(set(edge_list["source"]).union(set(edge_list["target"])))
             )
@@ -1176,6 +1221,14 @@ def build_graph(
             device=device,
             k=20,
         )
+        if _should_randomize_entire_graph(
+            randomize_graph, randomize_graph_type
+        ) or _should_randomize_component(randomize_graph, randomize_graph_type, "pert"):
+            edge_list = _randomize_edge_sources(edge_list)
+            print("Randomized PERT graph edges.")
+            edge_index, edge_weight = get_edge_index_and_weight(
+                edge_list, pert_names_graph, device=device
+            )
         condition_labels_graph = make_condition_labels_graph(pert_names, pert_names_graph)
     elif graph_type == "go+pert":
         _, _, edge_list_go, _ = get_go_graph(device, graph_dir=graph_dir)
@@ -1188,6 +1241,13 @@ def build_graph(
             k=20,
         )
 
+        if _should_randomize_component(randomize_graph, randomize_graph_type, "go"):
+            edge_list_go = _randomize_edge_sources(edge_list_go)
+            print("Randomized GO graph edges.")
+        if _should_randomize_component(randomize_graph, randomize_graph_type, "pert"):
+            edge_list_pert = _randomize_edge_sources(edge_list_pert)
+            print("Randomized PERT graph edges.")
+
         if pert_encoding == "hgnn":
             # Combine and deduplicate edge lists
             edge_list_go["relation"] = "gene_gene"
@@ -1195,8 +1255,9 @@ def build_graph(
             edge_list_pert["relation"] = "gene_gene"
             edge_list_pert["relation_type"] = "pert_sim"
             edge_list = pd.concat([edge_list_go, edge_list_pert], ignore_index=True)
-            if randomize_graph:
-                edge_list["source"] = np.random.permutation(edge_list["source"].to_numpy())
+            if _should_randomize_entire_graph(randomize_graph, randomize_graph_type):
+                edge_list = _randomize_edge_sources(edge_list)
+                print("Randomized entire graph edges.")
 
             # Create unified pert_names_graph and reindex edges
             pert_names_graph = np.array(
@@ -1219,6 +1280,9 @@ def build_graph(
             }
         else:
             edge_list = pd.concat([edge_list_go, edge_list_pert], ignore_index=True)
+            if _should_randomize_entire_graph(randomize_graph, randomize_graph_type):
+                edge_list = _randomize_edge_sources(edge_list)
+                print("Randomized entire graph edges.")
             pert_names_graph = np.array(
                 list(set(edge_list["source"]).union(set(edge_list["target"])))
             )
@@ -1241,6 +1305,16 @@ def build_graph(
             k=20,
         )
 
+        if _should_randomize_component(randomize_graph, randomize_graph_type, "go"):
+            edge_list_go = _randomize_edge_sources(edge_list_go)
+            print("Randomized GO graph edges.")
+        if _should_randomize_component(randomize_graph, randomize_graph_type, "ppi"):
+            edge_list_ppi = _randomize_edge_sources(edge_list_ppi)
+            print("Randomized PPI graph edges.")
+        if _should_randomize_component(randomize_graph, randomize_graph_type, "pert"):
+            edge_list_pert = _randomize_edge_sources(edge_list_pert)
+            print("Randomized PERT graph edges.")
+
         if pert_encoding == "hgnn":
             # Combine and deduplicate edge lists
             edge_list_go["relation"] = "gene_gene"
@@ -1250,8 +1324,9 @@ def build_graph(
             edge_list_pert["relation"] = "gene_gene"
             edge_list_pert["relation_type"] = "pert_sim"
             edge_list = pd.concat([edge_list_go, edge_list_ppi, edge_list_pert], ignore_index=True)
-            if randomize_graph:
-                edge_list["source"] = np.random.permutation(edge_list["source"].to_numpy())
+            if _should_randomize_entire_graph(randomize_graph, randomize_graph_type):
+                edge_list = _randomize_edge_sources(edge_list)
+                print("Randomized entire graph edges.")
 
             # Create unified pert_names_graph and reindex edges
             pert_names_graph = np.array(
@@ -1279,8 +1354,9 @@ def build_graph(
             }
         else:
             edge_list = pd.concat([edge_list_go, edge_list_pert, edge_list_ppi], ignore_index=True)
-            if randomize_graph:
-                edge_list["source"] = np.random.permutation(edge_list["source"].to_numpy())
+            if _should_randomize_entire_graph(randomize_graph, randomize_graph_type):
+                edge_list = _randomize_edge_sources(edge_list)
+                print("Randomized entire graph edges.")
             pert_names_graph = np.array(
                 list(set(edge_list["source"]).union(set(edge_list["target"])))
             )
