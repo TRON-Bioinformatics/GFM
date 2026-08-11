@@ -292,7 +292,6 @@ def train(model: nn.Module, train_loader: torch.utils.data.DataLoader) -> None:
                 )
         scaler.step(optimizer)
         scaler.update()
-        torch.cuda.empty_cache()
 
         # torch.cuda.empty_cache()
 

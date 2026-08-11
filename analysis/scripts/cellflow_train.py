@@ -28,6 +28,14 @@ if not os.path.exists(working_dir):
 
 adata = sc.read_h5ad(adata_dir_esm)
 
+# check ESM available for all genes
+genes_in_obs = set(adata.obs["gene_ensembl"])
+genes_in_obs.discard("control")
+genes_in_esm = set(adata.uns["esm_embeddings"].keys())
+genes_not_in_esm = genes_in_obs.difference(genes_in_esm)
+print(f"Genes in obs but not in ESM embeddings: {genes_not_in_esm}")
+adata = adata[~adata.obs["gene_ensembl"].isin(genes_not_in_esm)].copy()
+
 train_start = time.time()
 
 split_dict = pickle.load(open(split_dir, "rb"))
@@ -70,18 +78,28 @@ adata_val_for_validation = ad.concat(adatas_val_subsampled)
 adata_train_for_validation.uns = adata_train.uns.copy()
 adata_val_for_validation.uns = adata_val.uns.copy()
 
+# Keep validation batches small enough to avoid JAX/XLA compiling a very large
+# vmapped prediction graph over every condition at once.
+validation_condition_cap = 8
+train_validation_conditions = min(
+    validation_condition_cap, adata_train_for_validation.obs["gene_ensembl"].nunique()
+)
+val_validation_conditions = min(
+    validation_condition_cap, adata_val_for_validation.obs["gene_ensembl"].nunique()
+)
+
 cf.prepare_validation_data(
     adata_train_for_validation,
     name="train",
-    n_conditions_on_log_iteration=None,
-    n_conditions_on_train_end=None,
+    n_conditions_on_log_iteration=train_validation_conditions,
+    n_conditions_on_train_end=train_validation_conditions,
 )
 
 cf.prepare_validation_data(
     adata_val_for_validation,
     name="val",
-    n_conditions_on_log_iteration=None,
-    n_conditions_on_train_end=None,
+    n_conditions_on_log_iteration=val_validation_conditions,
+    n_conditions_on_train_end=val_validation_conditions,
 )
 layers_before_pool = {
     "genetic_perturbation": {"layer_type": "mlp", "dims": [512, 512], "dropout_rate": 0.0}

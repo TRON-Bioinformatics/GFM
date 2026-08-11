@@ -11,7 +11,7 @@ wheels/
 
 # Ignore all files in analysis/ except specific ones
 analysis/data/*
-!analysis/data/pert_graph_edge_index_20.pt
-!analysis/data/pert_graph_edge_list_20.csv
-!analysis/data/pert_graph_edge_weight_20.pt
-!analysis/data/pert_graph_pert_names_graph_20.npy
+!analysis/data/graph_data/
+analysis/data/graph_data/go_essential_all/
+analysis/data/graph_data/9606.*
+!analysis/data/1-s2.0-S0092867422005979-mmc2.xlsx
